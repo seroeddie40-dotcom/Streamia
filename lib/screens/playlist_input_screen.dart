@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/playlist_parser_service.dart';
 import '../services/playlist_service.dart';
 
@@ -12,63 +13,69 @@ class PlaylistInputScreen extends StatefulWidget {
 class _PlaylistInputScreenState extends State<PlaylistInputScreen> {
   final _nameController = TextEditingController();
   final _urlController = TextEditingController();
+  final _epgController = TextEditingController();
   final _m3uTextController = TextEditingController();
 
   @override
   void dispose() {
     _nameController.dispose();
     _urlController.dispose();
+    _epgController.dispose();
     _m3uTextController.dispose();
     super.dispose();
   }
 
+  Future<void> _pasteTo(TextEditingController ctrl) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null) {
+      setState(() {
+        ctrl.text = data!.text!.trim();
+      });
+    }
+  }
+
   void _savePlaylist() {
     final name = _nameController.text.trim().isEmpty
-        ? 'Meine Playlist ${PlaylistService().playlists.length + 1}'
+        ? 'Quelle ${PlaylistService().playlists.length + 1}'
         : _nameController.text.trim();
     final url = _urlController.text.trim();
+    final epg = _epgController.text.trim();
     final rawM3u = _m3uTextController.text.trim();
 
     if (url.isEmpty && rawM3u.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte gib eine Stream-URL oder M3U-Einträge ein.'),
+          content: Text('Bitte gib eine Xtream/M3U-URL oder M3U-Einträge ein.'),
         ),
       );
       return;
     }
 
-    List<MediaItem> channels = [];
     if (rawM3u.isNotEmpty) {
-      channels = PlaylistParserService().parseM3u(rawM3u);
+      final items = PlaylistParserService().parseM3u(rawM3u);
+      PlaylistService().addCustomPlaylist(
+        name: name,
+        sourceType: 'Manueller M3U-Import',
+        serverOrPath: url.isEmpty ? 'Lokale M3U-Datei' : url,
+        epgUrl: epg,
+        items: items,
+      );
     } else {
-      channels = [
-        MediaItem(
-          title: '$name - Hauptkanal',
-          group: 'Live TV',
-          url: url,
-        ),
-      ];
+      PlaylistService().loadFullRichCatalog(
+        name: name,
+        sourceType: 'M3U / Xtream Quelle',
+        serverOrPath: url,
+        epgUrl: epg.isEmpty ? 'Automatischer EPG' : epg,
+      );
     }
 
-    PlaylistService().addPlaylist(
-      name,
-      url.isEmpty ? 'Lokaler M3U-Import' : url,
-      channels,
-    );
-
-    Navigator.pop(context);
-  }
-
-  void _loadDemo() {
-    PlaylistService().loadDemoPlaylist();
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Playlist hinzufügen')),
+      appBar: AppBar(title: const Text('Quelle & EPG hinzufügen')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -77,7 +84,7 @@ class _PlaylistInputScreenState extends State<PlaylistInputScreen> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: 'Name der Playlist (z. B. Wohnzimmer TV)',
+                labelText: 'Bezeichnung (z. B. Haupt-Server)',
                 prefixIcon: const Icon(Icons.label_outline),
                 filled: true,
                 fillColor: const Color(0xFF1A1D29),
@@ -86,12 +93,17 @@ class _PlaylistInputScreenState extends State<PlaylistInputScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextField(
               controller: _urlController,
               decoration: InputDecoration(
-                labelText: 'M3U-URL oder direkter Stream-Link (.m3u8)',
+                labelText: 'Xtream Server-URL oder M3U-Link',
                 prefixIcon: const Icon(Icons.link),
+                suffixIcon: IconButton(
+                  tooltip: 'Einfügen',
+                  icon: const Icon(Icons.content_paste, color: Color(0xFF00E5FF)),
+                  onPressed: () => _pasteTo(_urlController),
+                ),
                 filled: true,
                 fillColor: const Color(0xFF1A1D29),
                 border: OutlineInputBorder(
@@ -99,12 +111,30 @@ class _PlaylistInputScreenState extends State<PlaylistInputScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _epgController,
+              decoration: InputDecoration(
+                labelText: 'EPG-Link (XMLTV URL)',
+                prefixIcon: const Icon(Icons.event_note),
+                suffixIcon: IconButton(
+                  tooltip: 'EPG-Link einfügen',
+                  icon: const Icon(Icons.content_paste, color: Color(0xFF00E5FF)),
+                  onPressed: () => _pasteTo(_epgController),
+                ),
+                filled: true,
+                fillColor: const Color(0xFF1A1D29),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             TextField(
               controller: _m3uTextController,
               maxLines: 5,
               decoration: InputDecoration(
-                labelText: 'Optional: Direkten #EXTM3U Text hier einfügen',
+                labelText: 'Optional: M3U-Dateiinhalt (#EXTM3U) hier einfügen',
                 alignLabelWithHint: true,
                 filled: true,
                 fillColor: const Color(0xFF1A1D29),
@@ -123,18 +153,9 @@ class _PlaylistInputScreenState extends State<PlaylistInputScreen> {
               onPressed: _savePlaylist,
               icon: const Icon(Icons.save),
               label: const Text(
-                'Playlist speichern & öffnen',
-                style: TextStyle(fontSize: 16),
+                'Quelle inkl. EPG speichern',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              onPressed: _loadDemo,
-              icon: const Icon(Icons.bolt),
-              label: const Text('Sofortige Demo-Senderliste laden'),
             ),
           ],
         ),

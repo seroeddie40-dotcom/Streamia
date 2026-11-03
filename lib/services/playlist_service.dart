@@ -1,44 +1,64 @@
+import 'playlist_parser_service.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
+class Playlist {
+  final String id;
+  final String name;
+  final String url;
+  final List<MediaItem> channels;
+
+  Playlist({
+    required this.id,
+    required this.name,
+    required this.url,
+    required this.channels,
+  });
+}
 
 class PlaylistService {
-  static const String _keyPlaylistType = 'playlist_type'; // 'xtream' oder 'm3u'
-  static const String _keyPlaylistData = 'playlist_data'; // URL, User, Pass oder M3U Inhalt
-  static const String _keyPlaylistName = 'playlist_name';
+  static final PlaylistService _instance = PlaylistService._internal();
+  factory PlaylistService() => _instance;
+  PlaylistService._internal();
 
-  // 1. Playlist speichern (Freemium: überschreibt die alte, da nur 1 erlaubt)
-  static Future<void> savePlaylist({
-    required String type,
-    required String data,
-    required String name,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPlaylistType, type);
-    await prefs.setString(_keyPlaylistData, data);
-    await prefs.setString(_keyPlaylistName, name);
+  final List<Playlist> _playlists = [];
+  Playlist? _activePlaylist;
+
+  List<Playlist> get playlists => _playlists;
+  Playlist? get activePlaylist => _activePlaylist ?? (_playlists.isNotEmpty ? _playlists.first : null);
+
+  void setActivePlaylist(Playlist playlist) {
+    _activePlaylist = playlist;
   }
 
-  // 2. Prüfen, ob eine Playlist vorhanden ist
-  static Future<bool> hasPlaylist() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_keyPlaylistData);
+  void addPlaylist(String name, String url, List<MediaItem> channels) {
+    final newPlaylist = Playlist(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      url: url,
+      channels: channels,
+    );
+    _playlists.add(newPlaylist);
+    _activePlaylist = newPlaylist;
   }
 
-  // 3. Gespeicherte Playlist-Daten abrufen
-  static Future> getPlaylist() async {
-    final prefs = await SharedPreferences.getInstance();
-    return {
-      'type': prefs.getString(_keyPlaylistType),
-      'data': prefs.getString(_keyPlaylistData),
-      'name': prefs.getString(_keyPlaylistName),
-    };
+  void removePlaylist(String id) {
+    _playlists.removeWhere((p) => p.id == id);
+    if (_activePlaylist?.id == id) {
+      _activePlaylist = _playlists.isNotEmpty ? _playlists.first : null;
+    }
   }
 
-  // 4. Playlist löschen (z.B. über die Einstellungen in der Freemium-Version)
-  static Future<void> clearPlaylist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyPlaylistType);
-    await prefs.remove(_keyPlaylistData);
-    await prefs.remove(_keyPlaylistName);
+  void loadDemoPlaylist() {
+    const sampleM3u = '''#EXTM3U
+#EXTINF:-1 group-title="News & Doku",Tagesschau 24 HD (Demo)
+https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master.m3u8
+#EXTINF:-1 group-title="Kultur & Wissen",NASA TV Public (Demo)
+https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8
+#EXTINF:-1 group-title="Entertainment",Red Bull TV (Demo)
+https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
+#EXTINF:-1 group-title="Filme & Serien",Big Buck Bunny (VOD Demo)
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+''';
+    final channels = PlaylistParserService().parseM3u(sampleM3u);
+    addPlaylist('Streamia Demo-Senderliste', 'https://streamia.app/demo.m3u', channels);
   }
 }

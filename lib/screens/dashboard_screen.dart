@@ -73,14 +73,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(
                         isPro ? 'Streamia PRO Aktiv' : 'Streamia Basis-Version',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         isPro
                             ? 'Alle Aufnahmen, Downloads & 4K-Streams sind freigeschaltet.'
                             : 'Schalte Aufnahmen & Offline-Downloads mit Pro frei.',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -109,7 +115,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _QuickActionCard(
                   icon: Icons.tv,
                   title: 'Sender öffnen',
-                  subtitle: '${_playlistService.activePlaylist?.channels.length ?? 0} Kanäle bereit',
+                  subtitle:
+                      '${_playlistService.activePlaylist?.channels.length ?? 0} Kanäle bereit',
                   onTap: () {
                     if (playlists.isEmpty) {
                       _navigateAndRefresh('/playlist_input');
@@ -133,7 +140,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: ListTile(
                 leading: const Icon(Icons.info_outline, color: Colors.amber),
                 title: const Text('Noch keine Playlist vorhanden'),
-                subtitle: const Text('Tippe hier, um eine M3U-Liste oder Demo zu laden.'),
+                subtitle: const Text(
+                  'Tippe hier, um eine M3U-Liste oder Demo zu laden.',
+                ),
                 onTap: () => _navigateAndRefresh('/playlist_input'),
               ),
             )
@@ -145,22 +154,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFE50914),
-                    child: Icon(Icons.Queue_music, color: Colors.white),
+                    child: Icon(Icons.queue_music, color: Colors.white),
                   ),
-                  title: Text(playlist.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${playlist.channels.length} Sender • ${playlist.url}'),
+                  title: Text(
+                    playlist.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${playlist.channels.length} Sender • ${playlist.url}',
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.play_arrow, color: Colors.greenAccent),
+                        icon: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.greenAccent,
+                        ),
                         onPressed: () {
                           _playlistService.setActivePlaylist(playlist);
                           _navigateAndRefresh('/media_browser');
                         },
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                        ),
                         onPressed: () {
                           setState(() {
                             _playlistService.removePlaylist(playlist.id);
@@ -193,11 +213,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: const Color(0xFF1A1D29),
                 child: ListTile(
                   leading: Icon(
-                    task.isCompleted ? Icons.check_circle : Icons.fiber_manual_record,
-                    color: task.isCompleted ? Colors.greenAccent : Colors.redAccent,
+                    task.isCompleted
+                        ? Icons.check_circle
+                        : Icons.fiber_manual_record,
+                    color: task.isCompleted
+                        ? Colors.greenAccent
+                        : Colors.redAccent,
                   ),
                   title: Text(task.title),
-                  subtitle: Text(task.isCompleted ? 'Gespeichert' : 'Aufnahme läuft...'),
+                  subtitle: Text(
+                    task.isCompleted ? 'Gespeichert' : 'Aufnahme läuft...',
+                  ),
                 ),
               ),
             ),
@@ -243,9 +269,15 @@ class _QuickActionCard extends StatelessWidget {
           children: [
             Icon(icon, size: 32, color: const Color(0xFF00E5FF)),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
           ],
         ),
       ),

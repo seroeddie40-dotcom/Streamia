@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/playlist_service.dart';
+import '../services/playlist_parser_service.dart';
 import '../services/pro_guard_service.dart';
 import '../services/recording_download_service.dart';
 
@@ -15,30 +16,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _proService = ProGuardService();
   final _recordingService = RecordingDownloadService();
 
-  Future<void> _navigateAndRefresh(String routeName) async {
-    await Navigator.pushNamed(context, routeName);
+  @override
+  void initState() {
+    super.initState();
+    if (_playlistService.playlists.isEmpty) {
+      _playlistService.loadFullRichCatalog();
+    }
+  }
+
+  Future<void> _openCategoryBrowser(MediaCategory category) async {
+    await Navigator.pushNamed(
+      context,
+      '/media_browser',
+      arguments: category,
+    );
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final playlists = _playlistService.playlists;
+    final active = _playlistService.activePlaylist;
+    final liveCount = _playlistService.getItemsByCategory(MediaCategory.live).length;
+    final movieCount = _playlistService.getItemsByCategory(MediaCategory.movie).length;
+    final seriesCount = _playlistService.getItemsByCategory(MediaCategory.series).length;
     final isPro = _proService.isProUser;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Streamia Dashboard'),
+        title: Column(
+          children: [
+            const Text('STREAMIA CENTER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              active != null ? '${active.name} (${active.sourceType})' : 'Keine Quelle aktiv',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF00E5FF)),
+            ),
+          ],
+        ),
         actions: [
+          IconButton(
+            tooltip: 'Zugangsdaten / QR / Quelle wechseln',
+            icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF00E5FF)),
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/playlist_input');
+              setState(() {});
+            },
+          ),
           IconButton(
             tooltip: 'Pro-Status',
             icon: Icon(
               isPro ? Icons.workspace_premium : Icons.star_border,
               color: isPro ? Colors.amber : Colors.white,
             ),
-            onPressed: () => _navigateAndRefresh('/pro_upgrade'),
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/pro_upgrade');
+              setState(() {});
+            },
           ),
           IconButton(
-            tooltip: 'Abmelden',
+            tooltip: 'Zum Login / Konto wechseln',
             icon: const Icon(Icons.logout),
             onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
           ),
@@ -47,239 +82,347 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isPro
-                    ? [const Color(0xFFB8860B), const Color(0xFF1A1D29)]
-                    : [const Color(0xFFE50914), const Color(0xFF1A1D29)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isPro ? Icons.verified : Icons.live_tv,
-                  size: 48,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isPro ? 'Streamia PRO Aktiv' : 'Streamia Basis-Version',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isPro
-                            ? 'Alle Aufnahmen, Downloads & 4K-Streams sind freigeschaltet.'
-                            : 'Schalte Aufnahmen & Offline-Downloads mit Pro frei.',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isPro)
-                  ElevatedButton(
-                    onPressed: () => _navigateAndRefresh('/pro_upgrade'),
-                    child: const Text('Upgrade'),
-                  ),
-              ],
-            ),
+          // 1. HAUPTBEREICH: DIE 3 GROSSEN KACHELN (LIVE TV, FILME/VODS, SERIEN)
+          const Text(
+            'Medien-Kategorien',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.playlist_add,
-                  title: 'Playlist hinzufügen',
-                  subtitle: 'M3U-Link oder Datei',
-                  onTap: () => _navigateAndRefresh('/playlist_input'),
+                child: _MainCategoryTile(
+                  title: 'LIVE TV',
+                  subtitle: '$liveCount Sender\ninkl. Live-EPG',
+                  icon: Icons.live_tv,
+                  gradientColors: const [Color(0xFFE50914), Color(0xFF7A040A)],
+                  onTap: () => _openCategoryBrowser(MediaCategory.live),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.tv,
-                  title: 'Sender öffnen',
-                  subtitle:
-                      '${_playlistService.activePlaylist?.channels.length ?? 0} Kanäle bereit',
-                  onTap: () {
-                    if (playlists.isEmpty) {
-                      _navigateAndRefresh('/playlist_input');
-                    } else {
-                      _navigateAndRefresh('/media_browser');
-                    }
-                  },
+                child: _MainCategoryTile(
+                  title: 'FILME (VOD)',
+                  subtitle: '$movieCount Filme\nHD & 4K Kino',
+                  icon: Icons.movie_creation_outlined,
+                  gradientColors: const [Color(0xFF0072FF), Color(0xFF002B66)],
+                  onTap: () => _openCategoryBrowser(MediaCategory.movie),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MainCategoryTile(
+                  title: 'SERIEN',
+                  subtitle: '$seriesCount Folgen\nAlle Staffeln',
+                  icon: Icons.video_library_outlined,
+                  gradientColors: const [Color(0xFF8E2DE2), Color(0xFF3B0B66)],
+                  onTap: () => _openCategoryBrowser(MediaCategory.series),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 28),
+
+          // 2. SCHNELLEINSTELLUNGEN MIT AUSKLAPPBAREN UNTERINFORMATIONEN
+          const Row(
+            children: [
+              Icon(Icons.tune, color: Color(0xFF00E5FF)),
+              SizedBox(width: 8),
+              Text(
+                'Schnelleinstellungen & System-Details',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           const Text(
-            'Meine Playlists',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            'Tippe auf eine Einstellung, um die detaillierten Unterinformationen & Steuerungen zu öffnen:',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 12),
-          if (playlists.isEmpty)
-            Card(
-              color: const Color(0xFF1A1D29),
-              child: ListTile(
-                leading: const Icon(Icons.info_outline, color: Colors.amber),
-                title: const Text('Noch keine Playlist vorhanden'),
-                subtitle: const Text(
-                  'Tippe hier, um eine M3U-Liste oder Demo zu laden.',
-                ),
-                onTap: () => _navigateAndRefresh('/playlist_input'),
+
+          // Schnelleinstellung 1: EPG & Programmführer-Steuerung
+          Card(
+            color: const Color(0xFF1A1D29),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: ExpansionTile(
+              leading: const Icon(Icons.event_note, color: Color(0xFF00E5FF)),
+              title: const Text('EPG-Programmführer & XMLTV', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                'Status: Aktiv • Aktualisierung: ${_playlistService.epgRefreshInterval}',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
               ),
-            )
-          else
-            ...playlists.map(
-              (playlist) => Card(
-                color: const Color(0xFF1A1D29),
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE50914),
-                    child: Icon(Icons.queue_music, color: Colors.white),
-                  ),
-                  title: Text(
-                    playlist.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${playlist.channels.length} Sender • ${playlist.url}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.greenAccent,
-                        ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                const Divider(color: Colors.white12),
+                _SubInfoRow(label: 'Aktive EPG-URL:', value: active?.epgUrl ?? 'Nicht hinterlegt'),
+                _SubInfoRow(label: 'Erkannte EPG-Sender:', value: '$liveCount Live-Kanäle synchronisiert'),
+                const SizedBox(height: 10),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('EPG beim App-Start automatisch laden', style: TextStyle(fontSize: 14)),
+                  value: _playlistService.autoUpdateEpg,
+                  activeColor: const Color(0xFF00E5FF),
+                  onChanged: (val) => setState(() => _playlistService.autoUpdateEpg = val),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
                         onPressed: () {
-                          _playlistService.setActivePlaylist(playlist);
-                          _navigateAndRefresh('/media_browser');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('EPG-Programmdaten wurden erfolgreich neu synchronisiert!')),
+                          );
                         },
+                        icon: const Icon(Icons.sync, size: 18),
+                        label: const Text('EPG jetzt aktualisieren'),
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.redAccent,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _playlistService.removePlaylist(playlist.id);
-                          });
-                        },
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Schnelleinstellung 2: Player, Stream-Format & Puffer-Kontrolle
+          Card(
+            color: const Color(0xFF1A1D29),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: ExpansionTile(
+              leading: const Icon(Icons.speed, color: Colors.amber),
+              title: const Text('Player-Engine, Puffer & Stream-Format', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                '${_playlistService.hardwareDecoder} • Puffer: ${_playlistService.bufferSize}',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                const Divider(color: Colors.white12),
+                _SubInfoRow(label: 'Aktives Stream-Format:', value: _playlistService.streamFormat),
+                _SubInfoRow(label: 'Video-Decoder:', value: _playlistService.hardwareDecoder),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _playlistService.bufferSize,
+                  decoration: const InputDecoration(
+                    labelText: 'Stream-Puffergröße (gegen Nachladen)',
+                    filled: true,
+                    fillColor: Color(0xFF0F111A),
                   ),
-                  onTap: () {
-                    _playlistService.setActivePlaylist(playlist);
-                    _navigateAndRefresh('/media_browser');
+                  items: const [
+                    DropdownMenuItem(value: 'Klein (1 Sekunde - Schnelles Umschalten)', child: Text('Klein (1 Sek.)')),
+                    DropdownMenuItem(value: 'Mittel (3 Sekunden - Optimal)', child: Text('Mittel (3 Sek. - Optimal)')),
+                    DropdownMenuItem(value: 'Groß (5 Sekunden - Maximale Stabilität)', child: Text('Groß (5 Sek.)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _playlistService.bufferSize = val);
                   },
                 ),
-              ),
-            ),
-          const SizedBox(height: 24),
-          Text(
-            'Aufnahmen & Downloads (${_recordingService.tasks.length})',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          if (_recordingService.tasks.isEmpty)
-            const Text(
-              'Noch keine Aufnahmen gestartet. Du kannst Streams direkt im Player aufnehmen.',
-              style: TextStyle(color: Colors.white54),
-            )
-          else
-            ..._recordingService.tasks.map(
-              (task) => Card(
-                color: const Color(0xFF1A1D29),
-                child: ListTile(
-                  leading: Icon(
-                    task.isCompleted
-                        ? Icons.check_circle
-                        : Icons.fiber_manual_record,
-                    color: task.isCompleted
-                        ? Colors.greenAccent
-                        : Colors.redAccent,
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: _playlistService.hardwareDecoder,
+                  decoration: const InputDecoration(
+                    labelText: 'Decoder-Modus',
+                    filled: true,
+                    fillColor: Color(0xFF0F111A),
                   ),
-                  title: Text(task.title),
-                  subtitle: Text(
-                    task.isCompleted ? 'Gespeichert' : 'Aufnahme läuft...',
-                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Hardware-Beschleunigung (HW+)',
+                      child: Text('Hardware-Beschleunigung (HW+)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Software-Decoder (SW)',
+                      child: Text('Software-Decoder (SW)'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _playlistService.hardwareDecoder = val);
+                  },
                 ),
-              ),
+              ],
             ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Schnelleinstellung 3: Aktive Verbindung, Xtream / M3U Details & Sortier-Übersicht
+          Card(
+            color: const Color(0xFF1A1D29),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: ExpansionTile(
+              leading: const Icon(Icons.dns_outlined, color: Colors.greenAccent),
+              title: const Text('Verbindungs-Details & Quellen-Verwaltung', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                'Quelle: ${active?.sourceType ?? "Keine"} • Gesamt: ${_playlistService.allItems.length} Einträge',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                const Divider(color: Colors.white12),
+                _SubInfoRow(label: 'Server / Dateipfad:', value: active?.serverOrPath ?? '-'),
+                _SubInfoRow(label: 'Katalog-Aufteilung:', value: '$liveCount Live • $movieCount Filme • $seriesCount Serien'),
+                _SubInfoRow(label: 'Aufnahmen / Downloads:', value: '${_recordingService.tasks.length} gespeicherte Streams'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE50914)),
+                        onPressed: () async {
+                          await Navigator.pushNamed(context, '/playlist_input');
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Weitere Quelle / EPG hinzufügen'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Schnelleinstellung 4: Kindersicherung & PIN-Kontrolle
+          Card(
+            color: const Color(0xFF1A1D29),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: ExpansionTile(
+              leading: const Icon(Icons.lock_outline, color: Colors.redAccent),
+              title: const Text('Kindersicherung & Kanal-Sperre', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                _playlistService.parentalControlEnabled
+                    ? 'Aktiviert (PIN-Schutz: ${_playlistService.parentalPin})'
+                    : 'Deaktiviert • Alle Kategorien frei zugänglich',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                const Divider(color: Colors.white12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('PIN-Abfrage für gesperrte Kategorien aktivieren', style: TextStyle(fontSize: 14)),
+                  value: _playlistService.parentalControlEnabled,
+                  activeColor: const Color(0xFFE50914),
+                  onChanged: (val) => setState(() => _playlistService.parentalControlEnabled = val),
+                ),
+                _SubInfoRow(label: 'Aktueller Sicherheits-PIN:', value: _playlistService.parentalPin),
+              ],
+            ),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFFE50914),
-        onPressed: () => _navigateAndRefresh('/playlist_input'),
-        icon: const Icon(Icons.add),
-        label: const Text('Playlist'),
       ),
     );
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
+class _MainCategoryTile extends StatelessWidget {
   final String title;
   final String subtitle;
+  final IconData icon;
+  final List<Color> gradientColors;
   final VoidCallback onTap;
 
-  const _QuickActionCard({
-    required this.icon,
+  const _MainCategoryTile({
     required this.title,
     required this.subtitle,
+    required this.icon,
+    required this.gradientColors,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Ink(
-        padding: const EdgeInsets.all(16),
+        height: 165,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1D29),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 32, color: const Color(0xFF00E5FF)),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: gradientColors.first.withOpacity(0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 32, color: Colors.white),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _SubInfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

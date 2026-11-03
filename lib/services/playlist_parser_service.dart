@@ -1,63 +1,56 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+class MediaItem {
+  final String title;
+  final String group;
+  final String url;
+  final String? logo;
+
+  MediaItem({
+    required this.title,
+    required this.group,
+    required this.url,
+    this.logo,
+  });
+}
 
 class PlaylistParserService {
-
-  // 1. Xtream Codes API Parser (Lädt Live TV, Filme, Serien direkt vom Server)
-  static Future> fetchXtreamData({
-    required String serverUrl,
-    required String username,
-    required String password,
-  }) async {
-    try {
-      final formattedUrl = serverUrl.endsWith('/') ? serverUrl.substring(0, serverUrl.length - 1) : serverUrl;
-      final authUrl = '$formattedUrl/player_api.php?username=$username&password=$password';
-
-      final response = await http.get(Uri.parse(authUrl));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // userInfo enthält Kontodaten, serverInfo etc.
-        return {'success': true, 'data': data};
-      }
-      return {'success': false, 'error': 'Server antwortete mit Code: ${response.statusCode}'};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // 2. M3U Playlist Parser (Parft lokale M3U-Dateien oder Links nach Sendern, Titeln und URLs)
-  static List> parseM3UContent(String m3uContent) {
-    final List> playlistItems = [];
-    final lines = m3uContent.split('\n');
-
-    String currentTitle = '';
-    String currentLogo = '';
+  List<MediaItem> parseM3u(String content) {
+    final lines = content.split('\n');
+    final List<MediaItem> items = [];
+    String currentTitle = 'Unbekannter Kanal';
+    String currentGroup = 'Allgemein';
+    String? currentLogo;
 
     for (var line in lines) {
       line = line.trim();
+      if (line.isEmpty) continue;
+
       if (line.startsWith('#EXTINF:')) {
-        // Titel und Logos aus der Extinf-Zeile extrahieren
-        if (line.contains(',')) {
-          currentTitle = line.split(',').last.trim();
+        final titleParts = line.split(',');
+        if (titleParts.length > 1) {
+          currentTitle = titleParts.last.trim();
         }
-        if (line.contains('tvg-logo="')) {
-          try {
-            currentLogo = line.split('tvg-logo="')[1].split('"').first;
-          } catch (_) {
-            currentLogo = '';
-          }
+        final groupMatch = RegExp(r'group-title="([^"]+)"').firstMatch(line);
+        if (groupMatch != null) {
+          currentGroup = groupMatch.group(1) ?? 'Allgemein';
         }
-      } else if (line.isNotEmpty && !line.startsWith('#')) {
-        // Das ist die Stream-URL
-        playlistItems.add({
-          'title': currentTitle.isNotEmpty ? currentTitle : 'Unbenannter Stream',
-          'url': line,
-          'logo': currentLogo,
-        });
-        currentTitle = '';
-        currentLogo = '';
+        final logoMatch = RegExp(r'tvg-logo="([^"]+)"').firstMatch(line);
+        if (logoMatch != null) {
+          currentLogo = logoMatch.group(1);
+        }
+      } else if (!line.startsWith('#')) {
+        items.add(
+          MediaItem(
+            title: currentTitle,
+            group: currentGroup,
+            url: line,
+            logo: currentLogo,
+          ),
+        );
+        currentTitle = 'Unbekannter Kanal';
+        currentGroup = 'Allgemein';
+        currentLogo = null;
       }
     }
-    return playlistItems;
+    return items;
   }
 }

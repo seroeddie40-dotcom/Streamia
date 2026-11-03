@@ -1,355 +1,253 @@
 import 'package:flutter/material.dart';
+import '../services/playlist_service.dart';
 import '../services/pro_guard_service.dart';
-import 'pro_upgrade_screen.dart';
+import '../services/recording_download_service.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Aktivierter Menüpunkt (Live TV, Filme, Serien, Favoriten, Einstellungen)
-  int _selectedCategoryIndex = 0;
+  final _playlistService = PlaylistService();
+  final _proService = ProGuardService();
+  final _recordingService = RecordingDownloadService();
 
-  final List> _categories = [
-    {'title': 'Live TV', 'icon': Icons.live_tv, 'count': '1,240 Sender'},
-    {'title': 'Filme (VOD)', 'icon': Icons.movie, 'count': '3,500 Titel'},
-    {'title': 'Serien', 'icon': Icons.tv, 'count': '420 Staffeln'},
-    {'title': 'Favoriten', 'icon': Icons.star, 'count': '12 Sender'},
-    {'title': 'Einstellungen', 'icon': Icons.settings, 'count': 'Setup & Konto'},
-  ];
+  Future<void> _navigateAndRefresh(String routeName) async {
+    await Navigator.pushNamed(context, routeName);
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    bool isPro = ProGuardService.isPro();
+    final playlists = _playlistService.playlists;
+    final isPro = _proService.isProUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Edles Dunkelblau/Schwarz
-      body: Row(
-        children: [
-          // 1. LINKE NAVIGATION (Hauptkategorien)
-          Container(
-            width: 260,
-            color: const Color(0xFF1E293B),
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // App Logo / Titel
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.blueAccent, size: 28),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Streamia',
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
-
-                // Kategorien-Liste
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      bool isSelected = _selectedCategoryIndex == index;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.blueAccent.withOpacity(0.3) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected ? Colors.blueAccent : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: ListTile(
-                          leading: Icon(
-                            _categories[index]['icon'],
-                            color: isSelected ? Colors.white : Colors.grey,
-                          ),
-                          title: Text(
-                            _categories[index]['title'],
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.grey.shade400,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: Text(
-                            _categories[index]['count'],
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                          ),
-                          onTap: () {
-                            setState(() {
-                              _selectedCategoryIndex = index;
-                            });
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // Pro-Status Anzeige unten in der Sidebar
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProUpgradeScreen()),
-                    ).then((_) => setState(() {})); // Aktualisiert den Status nach Rückkehr
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isPro ? Colors.amber.withOpacity(0.2) : Colors.grey.shade900,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isPro ? Colors.amber : Colors.grey.shade800),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(isPro ? Icons.star : Icons.lock, color: isPro ? Colors.amber : Colors.grey, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isPro ? 'Pro-Paket aktiv' : 'Kostenlos (Free)',
-                                style: TextStyle(color: isPro ? Colors.amber : Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                isPro ? 'Multi-Device & Features' : 'Jetzt upgraden',
-                                style: const TextStyle(color: Colors.grey, fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      appBar: AppBar(
+        title: const Text('Streamia Dashboard'),
+        actions: [
+          IconButton(
+            tooltip: 'Pro-Status',
+            icon: Icon(
+              isPro ? Icons.workspace_premium : Icons.star_border,
+              color: isPro ? Colors.amber : Colors.white,
             ),
+            onPressed: () => _navigateAndRefresh('/pro_upgrade'),
           ),
-
-          // 2. HAUPTBEREICH (Mitte: Medien-Kacheln)
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Oben: Begrüßung & Schnellsuche
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          IconButton(
+            tooltip: 'Abmelden',
+            icon: const Icon(Icons.logout),
+            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isPro
+                    ? [const Color(0xFFB8860B), const Color(0xFF1A1D29)]
+                    : [const Color(0xFFE50914), const Color(0xFF1A1D29)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isPro ? Icons.verified : Icons.live_tv,
+                  size: 48,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Willkommen zurück, ${_categories[_selectedCategoryIndex]['title']}',
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Wähle einen Inhalt oder starte die Sprachsuche',
-                            style: TextStyle(color: Colors.grey, fontSize: 14),
-                          ),
-                        ],
+                      Text(
+                        isPro ? 'Streamia PRO Aktiv' : 'Streamia Basis-Version',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      // Sprachsuche Button (Gezügelt durch ProGuard)
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E293B),
-                          side: BorderSide(color: Colors.blueAccent.withOpacity(0.5)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                        onPressed: () {
-                          ProGuardService.checkFeatureAccess(
-                            context: context,
-                            featureName: 'Sprachsuche mit Dialekt-Erkennung',
-                            onAccessGranted: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Sprachsuche gestartet (8 Sprachen aktiv)...')),
-                              );
-                            },
-                          );
-                        },
-                        icon: const Icon(Icons.mic, color: Colors.blueAccent),
-                        label: const Text('Sprachsuche', style: TextStyle(color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text(
+                        isPro
+                            ? 'Alle Aufnahmen, Downloads & 4K-Streams sind freigeschaltet.'
+                            : 'Schalte Aufnahmen & Offline-Downloads mit Pro frei.',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
-
-                  // Raster mit Inhalten (Kacheln im TV-Smarters Stil)
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.6,
-                      ),
-                      itemCount: 6,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade800),
-                          ),
-                          child: Stack(
-                            children: [
-                              Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.play_circle_fill, color: Colors.blueAccent, size: 48),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Stream Kanal #${index + 1}',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Download / Aufnahme Button (Pro-Feature Test)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: IconButton(
-                                  icon: const Icon(Icons.download, color: Colors.grey, size: 20),
-                                  onPressed: () {
-                                    ProGuardService.checkFeatureAccess(
-                                      context: context,
-                                      featureName: 'USB & Offline Downloads',
-                                      onAccessGranted: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Download auf USB gestartet...')),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                ),
+                if (!isPro)
+                  ElevatedButton(
+                    onPressed: () => _navigateAndRefresh('/pro_upgrade'),
+                    child: const Text('Upgrade'),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // 3. RECHTE TRANSPARENTE SIDEBAR ("Zuletzt geschaut" / Verlauf)
-          Container(
-            width: 280,
-            color: const Color(0xFF1E293B).withOpacity(0.7), // Transparent-Effekt
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Zuletzt geschaut',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    if (!isPro)
-                      const Icon(Icons.lock, color: Colors.amber, size: 16),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Live-TV, Filme & Serien Verlauf',
-                  style: TextStyle(color: Colors.grey, fontSize: 11),
-                ),
-                const SizedBox(height: 20),
-
-                // Verlauf-Einträge (Gesperrt oder aktiv)
-                Expanded(
-                  child: isPro
-                      ? ListView.builder(
-                          itemCount: 4,
-                          itemBuilder: (context, index) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A).withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.history, color: Colors.blueAccent, size: 20),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Sendung #${index + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 2),
-                                        const Text('Vor 15 Minuten', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.lock_outline, color: Colors.amber, size: 40),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Verlauf-Sidebar\nist ein Pro-Feature',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Schalte die rechte Sidebar durch ein Upgrade frei.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey, fontSize: 11),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const ProUpgradeScreen()),
-                                  ).then((_) => setState(() {}));
-                                },
-                                child: const Text('Jetzt freischalten', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.playlist_add,
+                  title: 'Playlist hinzufügen',
+                  subtitle: 'M3U-Link oder Datei',
+                  onTap: () => _navigateAndRefresh('/playlist_input'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.tv,
+                  title: 'Sender öffnen',
+                  subtitle: '${_playlistService.activePlaylist?.channels.length ?? 0} Kanäle bereit',
+                  onTap: () {
+                    if (playlists.isEmpty) {
+                      _navigateAndRefresh('/playlist_input');
+                    } else {
+                      _navigateAndRefresh('/media_browser');
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Meine Playlists',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (playlists.isEmpty)
+            Card(
+              color: const Color(0xFF1A1D29),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.amber),
+                title: const Text('Noch keine Playlist vorhanden'),
+                subtitle: const Text('Tippe hier, um eine M3U-Liste oder Demo zu laden.'),
+                onTap: () => _navigateAndRefresh('/playlist_input'),
+              ),
+            )
+          else
+            ...playlists.map(
+              (playlist) => Card(
+                color: const Color(0xFF1A1D29),
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE50914),
+                    child: Icon(Icons.Queue_music, color: Colors.white),
+                  ),
+                  title: Text(playlist.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('${playlist.channels.length} Sender • ${playlist.url}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow, color: Colors.greenAccent),
+                        onPressed: () {
+                          _playlistService.setActivePlaylist(playlist);
+                          _navigateAndRefresh('/media_browser');
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        onPressed: () {
+                          setState(() {
+                            _playlistService.removePlaylist(playlist.id);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    _playlistService.setActivePlaylist(playlist);
+                    _navigateAndRefresh('/media_browser');
+                  },
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
+          Text(
+            'Aufnahmen & Downloads (${_recordingService.tasks.length})',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (_recordingService.tasks.isEmpty)
+            const Text(
+              'Noch keine Aufnahmen gestartet. Du kannst Streams direkt im Player aufnehmen.',
+              style: TextStyle(color: Colors.white54),
+            )
+          else
+            ..._recordingService.tasks.map(
+              (task) => Card(
+                color: const Color(0xFF1A1D29),
+                child: ListTile(
+                  leading: Icon(
+                    task.isCompleted ? Icons.check_circle : Icons.fiber_manual_record,
+                    color: task.isCompleted ? Colors.greenAccent : Colors.redAccent,
+                  ),
+                  title: Text(task.title),
+                  subtitle: Text(task.isCompleted ? 'Gespeichert' : 'Aufnahme läuft...'),
+                ),
+              ),
+            ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFFE50914),
+        onPressed: () => _navigateAndRefresh('/playlist_input'),
+        icon: const Icon(Icons.add),
+        label: const Text('Playlist'),
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1D29),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 32, color: const Color(0xFF00E5FF)),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }

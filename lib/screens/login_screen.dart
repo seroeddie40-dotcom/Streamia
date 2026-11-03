@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../services/playlist_service.dart';
 import '../services/playlist_parser_service.dart';
 
@@ -10,21 +11,22 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _playlistService = PlaylistService();
 
-  final _xtreamNameCtrl = TextEditingController(text: 'Mein Haupt-IPTV');
+  // Xtream Codes Controller
+  final _xtreamNameCtrl = TextEditingController(text: 'Haupt-IPTV');
   final _xtreamServerCtrl = TextEditingController();
   final _xtreamUserCtrl = TextEditingController();
   final _xtreamPassCtrl = TextEditingController();
   final _xtreamEpgCtrl = TextEditingController();
 
-  final _m3uNameCtrl = TextEditingController(text: 'Meine M3U Liste');
+  // M3U Controller
+  final _m3uNameCtrl = TextEditingController(text: 'Meine M3U');
   final _m3uUrlCtrl = TextEditingController();
   final _m3uEpgCtrl = TextEditingController();
   final _m3uRawTextCtrl = TextEditingController();
-  String? _selectedFileName;
 
   @override
   void initState() {
@@ -47,211 +49,6 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Future<void> _pasteFromClipboard(
-      TextEditingController controller, String label) async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data != null && data.text != null && data.text!.trim().isNotEmpty) {
-      setState(() {
-        controller.text = data.text!.trim();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label eingefügt!')),
-        );
-      }
-    }
-  }
-
-  void _openQrScannerDialog() {
-    final qrManualCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1D29),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.qr_code_scanner, color: Color(0xFF00E5FF)),
-                      SizedBox(width: 10),
-                      Text(
-                        'Integrierter QR-Code Scanner',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF00E5FF), width: 2),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.qr_code_2, size: 120, color: Colors.white24),
-                    Container(width: 220, height: 2, color: const Color(0xFFE50914)),
-                    const Positioned(
-                      bottom: 12,
-                      child: Text(
-                        'QR-Code für Xtream oder M3U + EPG in den Rahmen halten',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: qrManualCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Oder QR-Payload hier prüfen',
-                  filled: true,
-                  fillColor: const Color(0xFF0F111A),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E5FF),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _xtreamServerCtrl.text = 'http://qr-streamia.tv:8080';
-                      _xtreamUserCtrl.text = 'Streamia_QR_User';
-                      _xtreamPassCtrl.text = 'qr_pass_2026';
-                      _xtreamEpgCtrl.text =
-                          'http://qr-streamia.tv:8080/xmltv.php';
-                      _tabController.animateTo(0);
-                    });
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'QR-Code erkannt! Zugangsdaten & EPG wurden übernommen.'),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.center_focus_strong),
-                  label: const Text(
-                    'QR-Code erfassen & Daten eintragen',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _openLocalFilePickerDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1D29),
-          title: const Row(
-            children: [
-              Icon(Icons.upload_file, color: Color(0xFF00E5FF)),
-              SizedBox(width: 10),
-              Expanded(child: Text('M3U / M3U8 Datei hochladen')),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                tileColor: const Color(0xFF0F111A),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                leading:
-                    const Icon(Icons.description, color: Color(0xFFE50914)),
-                title: const Text('streamia_komplett_2026.m3u'),
-                subtitle: const Text('Lokaler Speicher • Live TV, VODs & Serien'),
-                onTap: () {
-                  setState(() {
-                    _selectedFileName = 'streamia_komplett_2026.m3u';
-                    _m3uUrlCtrl.text =
-                        'file:///storage/Download/streamia_komplett_2026.m3u';
-                    if (_m3uEpgCtrl.text.isEmpty) {
-                      _m3uEpgCtrl.text = 'http://epg.streamia.tv/guide.xml';
-                    }
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _m3uRawTextCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Oder #EXTM3U Inhalt direkt einfügen',
-                  filled: true,
-                  fillColor: const Color(0xFF0F111A),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE50914)),
-              onPressed: () {
-                setState(() {
-                  _selectedFileName = 'Eigene_M3U_Datei.m3u';
-                  if (_m3uUrlCtrl.text.isEmpty) {
-                    _m3uUrlCtrl.text = 'Lokale M3U-Datei geladen';
-                  }
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('Übernehmen'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _loginWithXtream() {
     final server = _xtreamServerCtrl.text.trim();
     final user = _xtreamUserCtrl.text.trim();
@@ -260,61 +57,47 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (server.isEmpty || user.isEmpty || pass.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Bitte Server, Benutzername und Passwort eingeben oder QR-Scanner nutzen.'),
-        ),
+        const SnackBar(content: Text('Bitte Server-URL, Benutzername und Passwort eintragen.')),
       );
       return;
     }
 
-    PlaylistService().loadFullRichCatalog(
-      name: _xtreamNameCtrl.text.trim().isEmpty
-          ? 'Xtream IPTV'
-          : _xtreamNameCtrl.text.trim(),
+    _playlistService.loadFullRichCatalog(
+      name: _xtreamNameCtrl.text.trim().isEmpty ? 'Xtream TV' : _xtreamNameCtrl.text.trim(),
       sourceType: 'Xtream Codes API',
       serverOrPath: server,
-      epgUrl: epg.isNotEmpty
-          ? epg
-          : '$server/xmltv.php?username=$user&password=$pass',
+      epgUrl: epg.isNotEmpty ? epg : '$server/xmltv.php?username=$user&password=$pass',
     );
     Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   void _loginWithM3u() {
-    final urlOrFile = _m3uUrlCtrl.text.trim();
+    final url = _m3uUrlCtrl.text.trim();
     final rawText = _m3uRawTextCtrl.text.trim();
     final epg = _m3uEpgCtrl.text.trim();
-    final name = _m3uNameCtrl.text.trim().isEmpty
-        ? 'M3U Playlist'
-        : _m3uNameCtrl.text.trim();
+    final name = _m3uNameCtrl.text.trim().isEmpty ? 'M3U Liste' : _m3uNameCtrl.text.trim();
 
-    if (urlOrFile.isEmpty && rawText.isEmpty) {
+    if (url.isEmpty && rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Bitte M3U-Datei auswählen oder M3U-Link einfügen.'),
-        ),
+        const SnackBar(content: Text('Bitte eine M3U-URL oder Inhalt eintragen.')),
       );
       return;
     }
 
     if (rawText.isNotEmpty) {
-      final parsedItems = PlaylistParserService().parseM3u(rawText);
-      PlaylistService().addCustomPlaylist(
+      final items = PlaylistParserService().parseM3u(rawText);
+      _playlistService.addCustomPlaylist(
         name: name,
-        sourceType: 'M3U Datei-Upload',
-        serverOrPath: _selectedFileName ?? urlOrFile,
+        sourceType: 'M3U Direkt-Upload',
+        serverOrPath: 'Lokaler Upload',
         epgUrl: epg,
-        items: parsedItems,
+        items: items,
       );
     } else {
-      PlaylistService().loadFullRichCatalog(
+      _playlistService.loadFullRichCatalog(
         name: name,
-        sourceType: _selectedFileName != null
-            ? 'M3U Datei ($_selectedFileName)'
-            : 'M3U Link',
-        serverOrPath: urlOrFile,
+        sourceType: 'M3U Link',
+        serverOrPath: url,
         epgUrl: epg.isEmpty ? 'http://epg.streamia.tv/xmltv.xml' : epg,
       );
     }
@@ -323,256 +106,151 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final qrPayload = '${_playlistService.webUploadUrl}?mac=${_playlistService.macAddress}&key=${_playlistService.deviceKey}';
+
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      'assets/images/app_logo.jpg',
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, st) => Container(
-                        width: 60,
-                        height: 60,
-                        color: const Color(0xFFE50914),
-                        child: const Icon(Icons.live_tv, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'STREAMIA LOGIN',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'QR-Code, Xtream Codes oder M3U Datei + EPG',
-                          style: TextStyle(color: Colors.white60, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _openQrScannerDialog,
+              // LINKE HÄLFTE: ECHTER QR-CODE + MAC-ADRESSE FÜR SMARTPHONE/PC-UPLOAD
+              Expanded(
+                flex: 4,
                 child: Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF005C66), Color(0xFF1A1D29)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: const Color(0xFF00E5FF), width: 1.5),
+                    color: const Color(0xFF1A1D29),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white12),
                   ),
-                  child: const Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.qr_code_scanner,
-                          size: 38, color: Color(0xFF00E5FF)),
-                      SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'QR-Code Scanner starten',
-                              style: TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Xtream-Daten oder M3U + EPG direkt scannen',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12),
-                            ),
-                          ],
+                      const Text(
+                        'GERÄT VERBINDEN & UPLOAD',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Scanne den QR-Code mit dem Handy oder öffne die Web-Adresse:',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: QrImageView(
+                          data: qrPayload,
+                          version: QrVersions.auto,
+                          size: 160.0,
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios,
-                          size: 16, color: Color(0xFF00E5FF)),
+                      const SizedBox(height: 16),
+                      _DeviceInfoRow(label: 'TV MAC-Adresse:', value: _playlistService.macAddress),
+                      const SizedBox(height: 6),
+                      _DeviceInfoRow(label: 'Geräte-Key:', value: _playlistService.deviceKey),
+                      const SizedBox(height: 6),
+                      _DeviceInfoRow(label: 'Web-Upload:', value: _playlistService.webUploadUrl),
+                      const SizedBox(height: 16),
+                      _TvButton(
+                        text: 'Demo / Vorhandene Liste laden',
+                        icon: Icons.bolt,
+                        color: Colors.amber,
+                        textColor: Colors.black,
+                        onPressed: () {
+                          _playlistService.loadFullRichCatalog();
+                          Navigator.pushReplacementNamed(context, '/dashboard');
+                        },
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1D29),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicator: BoxDecoration(
-                    color: const Color(0xFFE50914),
-                    borderRadius: BorderRadius.circular(12),
+
+              const SizedBox(width: 24),
+
+              // RECHTE HÄLFTE: MANUELLE FERNBEDIENUNGS-EINGABE (XTREAM & M3U + EPG)
+              Expanded(
+                flex: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1D29),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white12),
                   ),
-                  tabs: const [
-                    Tab(icon: Icon(Icons.dns), text: 'Xtream Codes'),
-                    Tab(icon: Icon(Icons.folder_open), text: 'M3U Datei / Link'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                height: 420,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _PasteInputField(
-                            controller: _xtreamNameCtrl,
-                            label: 'Profilname (z. B. Wohnzimmer)',
-                            icon: Icons.badge_outlined,
-                          ),
-                          const SizedBox(height: 12),
-                          _PasteInputField(
-                            controller: _xtreamServerCtrl,
-                            label: 'Server-URL (http://...)',
-                            icon: Icons.language,
-                            onPaste: () => _pasteFromClipboard(
-                                _xtreamServerCtrl, 'Server-URL'),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _PasteInputField(
-                                  controller: _xtreamUserCtrl,
-                                  label: 'Benutzername',
-                                  icon: Icons.person_outline,
-                                  onPaste: () => _pasteFromClipboard(
-                                      _xtreamUserCtrl, 'Benutzername'),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _PasteInputField(
-                                  controller: _xtreamPassCtrl,
-                                  label: 'Passwort',
-                                  icon: Icons.lock_outline,
-                                  isPassword: true,
-                                  onPaste: () => _pasteFromClipboard(
-                                      _xtreamPassCtrl, 'Passwort'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _PasteInputField(
-                            controller: _xtreamEpgCtrl,
-                            label: 'EPG-Link (XMLTV URL einfügen)',
-                            icon: Icons.event_note,
-                            onPaste: () =>
-                                _pasteFromClipboard(_xtreamEpgCtrl, 'EPG-Link'),
-                          ),
-                          const SizedBox(height: 18),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE50914),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                            ),
-                            onPressed: _loginWithXtream,
-                            icon: const Icon(Icons.login),
-                            label: const Text(
-                              'Mit Xtream Codes & EPG verbinden',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        indicatorColor: const Color(0xFFE50914),
+                        tabs: const [
+                          Tab(icon: Icon(Icons.dns), text: 'Xtream Codes API'),
+                          Tab(icon: Icon(Icons.link), text: 'M3U Playlist & EPG'),
                         ],
                       ),
-                    ),
-                    SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _PasteInputField(
-                            controller: _m3uNameCtrl,
-                            label: 'Name der Playlist',
-                            icon: Icons.label_outline,
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: Color(0xFF00E5FF)),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            // TAB 1: XTREAM CODES
+                            ListView(
+                              children: [
+                                _TvInputField(controller: _xtreamNameCtrl, label: 'Profilname', icon: Icons.badge),
+                                const SizedBox(height: 10),
+                                _TvInputField(controller: _xtreamServerCtrl, label: 'Server-URL (z. B. http://iptv.tv:8080)', icon: Icons.language),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(child: _TvInputField(controller: _xtreamUserCtrl, label: 'Benutzername', icon: Icons.person)),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: _TvInputField(controller: _xtreamPassCtrl, label: 'Passwort', icon: Icons.lock, isPassword: true)),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                _TvInputField(controller: _xtreamEpgCtrl, label: 'EPG-Link (XMLTV URL)', icon: Icons.event_note),
+                                const SizedBox(height: 16),
+                                _TvButton(
+                                  text: 'Verbinden & Sender laden',
+                                  icon: Icons.login,
+                                  color: const Color(0xFFE50914),
+                                  onPressed: _loginWithXtream,
+                                ),
+                              ],
                             ),
-                            onPressed: _openLocalFilePickerDialog,
-                            icon: const Icon(Icons.upload_file,
-                                color: Color(0xFF00E5FF)),
-                            label: Text(
-                              _selectedFileName == null
-                                  ? 'M3U / M3U8 Datei vom Gerät hochladen'
-                                  : 'Datei: $_selectedFileName',
-                              style: const TextStyle(color: Colors.white),
+
+                            // TAB 2: M3U PLAYLIST & EPG
+                            ListView(
+                              children: [
+                                _TvInputField(controller: _m3uNameCtrl, label: 'Name der Playlist', icon: Icons.badge),
+                                const SizedBox(height: 10),
+                                _TvInputField(controller: _m3uUrlCtrl, label: 'M3U-URL (.m3u oder .m3u8)', icon: Icons.link),
+                                const SizedBox(height: 10),
+                                _TvInputField(controller: _m3uEpgCtrl, label: 'EPG-Link (XMLTV URL)', icon: Icons.event_note),
+                                const SizedBox(height: 10),
+                                _TvInputField(controller: _m3uRawTextCtrl, label: 'M3U-Datei Inhalt (#EXTM3U)', icon: Icons.text_snippet, maxLines: 2),
+                                const SizedBox(height: 16),
+                                _TvButton(
+                                  text: 'M3U & EPG laden',
+                                  icon: Icons.cloud_done,
+                                  color: const Color(0xFFE50914),
+                                  onPressed: _loginWithM3u,
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          _PasteInputField(
-                            controller: _m3uUrlCtrl,
-                            label: 'Oder M3U-Link einfügen (.m3u / .m3u8)',
-                            icon: Icons.link,
-                            onPaste: () =>
-                                _pasteFromClipboard(_m3uUrlCtrl, 'M3U-Link'),
-                          ),
-                          const SizedBox(height: 12),
-                          _PasteInputField(
-                            controller: _m3uEpgCtrl,
-                            label: 'EPG-Link (XMLTV URL einfügen)',
-                            icon: Icons.event_note,
-                            onPaste: () =>
-                                _pasteFromClipboard(_m3uEpgCtrl, 'EPG-Link'),
-                          ),
-                          const SizedBox(height: 18),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE50914),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                            ),
-                            onPressed: _loginWithM3u,
-                            icon: const Icon(Icons.cloud_done),
-                            label: const Text(
-                              'M3U Datei / Link & EPG laden',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Colors.white24),
-              TextButton.icon(
-                onPressed: () {
-                  PlaylistService().loadFullRichCatalog();
-                  Navigator.pushReplacementNamed(context, '/dashboard');
-                },
-                icon: const Icon(Icons.bolt, color: Colors.amber),
-                label: const Text(
-                  'Sofort-Test: Komplettes System (Live TV, VODs, Serien & EPG) öffnen',
-                  style: TextStyle(color: Colors.amber),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -583,41 +261,144 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-class _PasteInputField extends StatelessWidget {
+class _DeviceInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DeviceInfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        SelectableText(
+          value,
+          style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _TvInputField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
   final bool isPassword;
-  final VoidCallback? onPaste;
+  final int maxLines;
 
-  const _PasteInputField({
+  const _TvInputField({
     required this.controller,
     required this.label,
     required this.icon,
     this.isPassword = false,
-    this.onPaste,
+    this.maxLines = 1,
   });
 
   @override
+  State<_TvInputField> createState() => _TvInputFieldState();
+}
+
+class _TvInputFieldState extends State<_TvInputField> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        suffixIcon: onPaste != null
-            ? IconButton(
-                tooltip: 'Einfügen',
-                icon: const Icon(Icons.content_paste, color: Color(0xFF00E5FF)),
-                onPressed: onPaste,
-              )
-            : null,
-        filled: true,
-        fillColor: const Color(0xFF1A1D29),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    final hasFocus = _focusNode.hasFocus;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasFocus ? const Color(0xFF00E5FF) : Colors.transparent,
+          width: 2,
         ),
+      ),
+      child: TextField(
+        focusNode: _focusNode,
+        controller: widget.controller,
+        obscureText: widget.isPassword,
+        maxLines: widget.maxLines,
+        decoration: InputDecoration(
+          labelText: widget.label,
+          prefixIcon: Icon(widget.icon, color: hasFocus ? const Color(0xFF00E5FF) : Colors.white60),
+          filled: true,
+          fillColor: const Color(0xFF0F111A),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        ),
+      ),
+    );
+  }
+}
+
+class _TvButton extends StatefulWidget {
+  final String text;
+  final IconData icon;
+  final Color color;
+  final Color textColor;
+  final VoidCallback onPressed;
+
+  const _TvButton({
+    required this.text,
+    required this.icon,
+    required this.color,
+    this.textColor = Colors.white,
+    required this.onPressed,
+  });
+
+  @override
+  State<_TvButton> createState() => _TvButtonState();
+}
+
+class _TvButtonState extends State<_TvButton> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFocus = _focusNode.hasFocus;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasFocus ? Colors.white : Colors.transparent,
+          width: 3,
+        ),
+      ),
+      child: ElevatedButton.icon(
+        focusNode: _focusNode,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.color,
+          foregroundColor: widget.textColor,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: widget.onPressed,
+        icon: Icon(widget.icon),
+        label: Text(widget.text, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }

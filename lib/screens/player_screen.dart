@@ -1,179 +1,151 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../services/playlist_parser_service.dart';
+import '../services/pro_guard_service.dart';
+import '../services/recording_download_service.dart';
 
 class PlayerScreen extends StatefulWidget {
-  final String streamUrl;
-  final String title;
-  final bool isSeries;
-
-  const PlayerScreen({
-    Key? key,
-    required this.streamUrl,
-    required this.title,
-    this.isSeries = false,
-  }) : super(key: key);
+  const PlayerScreen({super.key});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  bool _showControls = true;
-  bool _showSidebar = false; // Transparente Sidebar für Serien (Staffel/Episoden)
+  bool _isPlaying = true;
+  bool _isRecording = false;
+
+  Future<void> _handleRecord(MediaItem item) async {
+    if (!ProGuardService().isProUser) {
+      final upgraded = await Navigator.pushNamed(context, '/pro_upgrade');
+      if (upgraded != true && !ProGuardService().isProUser) return;
+    }
+
+    setState(() => _isRecording = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Aufnahme gestartet: ${item.title}')),
+    );
+    await RecordingDownloadService().startRecording(item.title, item.url);
+    if (mounted) {
+      setState(() => _isRecording = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Aufnahme im Dashboard gespeichert: ${item.title}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final MediaItem item = args is MediaItem
+        ? args
+        : MediaItem(
+            title: 'Streamia Live-Kanal',
+            group: 'Live TV',
+            url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+          );
+
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Focus(
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          // D-Pad Steuerung für TV-Fernbedienung
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.space ||
-                event.logicalKey == LogicalKeyboardKey.mediaPlay) {
-              setState(() {
-                _showControls = !_showControls;
-              });
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft && widget.isSeries) {
-              setState(() {
-                _showSidebar = !_showSidebar; // Sidebar per Pfeiltaste ein-/ausblenden
-              });
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
-        },
-        child: Stack(
-          children: [
-            // 1. Eigentlicher Videobereich (Platzhalter für den Stream)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      appBar: AppBar(
+        title: Text(item.title),
+        actions: [
+          IconButton(
+            tooltip: 'Stream aufnehmen',
+            icon: Icon(
+              _isRecording ? Icons.stop_circle : Icons.fiber_manual_record,
+              color: Colors.redAccent,
+            ),
+            onPressed: () => _handleRecord(item),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              color: Colors.black,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  const Icon(Icons.play_circle_filled, size: 80, color: Colors.white54),
-                  const SizedBox(height: 10),
-                  Text(
-                    widget.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isPlaying ? Icons.sensors : Icons.pause_circle_outline,
+                        size: 72,
+                        color: const Color(0xFFE50914),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _isPlaying ? 'LIVE STREAM AKTIV' : 'PAUSIERT',
+                        style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          item.url,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white38, fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Text(
-                    '(Stream-Wiedergabe aktiv)',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Positioned(
+                    bottom: 12,
+                    left: 16,
+                    right: 16,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
+                          onPressed: () => setState(() => _isPlaying = !_isPlaying),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE50914),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('LIVE • HD', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-
-            // 2. Transparente Sidebar für Serien (Staffel- & Episoden-Auswahl)
-            if (widget.isSeries && _showSidebar)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 320,
-                child: Container(
-                  color: Colors.black.withOpacity(0.85),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Staffeln & Episoden',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const Divider(color: Colors.white30),
-                      // Beispiel für Staffel-Auswahl
-                      DropdownButton<String>(
-                        dropdownColor: Colors.grey[900],
-                        value: 'Staffel 1',
-                        style: const TextStyle(color: Colors.white),
-                        items: ['Staffel 1', 'Staffel 2'].map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).onChanged,
-                        onChanged: (_) {},
-                      ),
-                      const SizedBox(height: 10),
-                      // Episoden-Liste
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: 10,
-                          itemBuilder: (context, index) {
-                            return ListTile(
-                              title: Text('Episode ${index + 1}', style: const TextStyle(color: Colors.white)),
-                              subtitle: const Text('Titel der Folge', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              onTap: () {
-                                // Logik zum Umschalten der Episode
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text('Kategorie: ${item.group}', style: const TextStyle(color: Colors.white60)),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A1D29),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  onPressed: () => _handleRecord(item),
+                  icon: const Icon(Icons.download_for_offline, color: Color(0xFF00E5FF)),
+                  label: Text(
+                    ProGuardService().isProUser
+                        ? 'Sendung jetzt aufnehmen / speichern'
+                        : 'Sendung aufnehmen (Pro-Funktion)',
                   ),
                 ),
-              ),
-
-            // 3. OSD Overlay-Steuerung (Play/Pause, Zurück zum Anfang, etc.)
-            if (_showControls)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black.withOpacity(0.9), Colors.transparent],
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Zum Anfang der Folge springen
-                      IconButton(
-                        color: Colors.white,
-                        iconSize: 32,
-                        icon: const Icon(Icons.skip_previous),
-                        onPressed: () {
-                          // Logik: Spult an den Anfang zurück (0:00)
-                        },
-                        tooltip: 'Zum Anfang zurück',
-                      ),
-                      // Play / Pause
-                      IconButton(
-                        color: Colors.white,
-                        iconSize: 48,
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: () {},
-                      ),
-                      // Bei Serien: Sidebar direkt per Button öffnen
-                      if (widget.isSeries)
-                        IconButton(
-                          color: Colors.white,
-                          iconSize: 32,
-                          icon: const Icon(Icons.menu),
-                          onPressed: () {
-                            setState(() {
-                              _showSidebar = !_showSidebar;
-                            });
-                          },
-                          tooltip: 'Staffeln & Episoden',
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

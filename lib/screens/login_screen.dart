@@ -49,7 +49,8 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Future<void> _pasteFromClipboard(TextEditingController controller, String label) async {
+  Future<void> _pasteFromClipboard(
+      TextEditingController controller, String label) async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data != null && data.text != null && data.text!.trim().isNotEmpty) {
       setState(() {
@@ -98,7 +99,8 @@ class _LoginScreenState extends State<LoginScreen>
                       SizedBox(width: 10),
                       Text(
                         'Integrierter QR-Code Scanner',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -109,7 +111,6 @@ class _LoginScreenState extends State<LoginScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              // Optischer Kamerasucher mit Scan-Rahmen
               Container(
                 height: 210,
                 width: double.infinity,
@@ -149,7 +150,8 @@ class _LoginScreenState extends State<LoginScreen>
                   hintText: 'http://server:port/get.php?username=...',
                   filled: true,
                   fillColor: const Color(0xFF0F111A),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -164,16 +166,19 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       onPressed: () {
                         setState(() {
-                          _xtreamServerCtrl.text = 'http://qr-streamia.tv:8080';
+                          _xtreamServerCtrl.text =
+                              'http://qr-streamia.tv:8080';
                           _xtreamUserCtrl.text = 'Streamia_QR_User';
                           _xtreamPassCtrl.text = 'qr_pass_2026';
-                          _xtreamEpgCtrl.text = 'http://qr-streamia.tv:8080/xmltv.php';
+                          _xtreamEpgCtrl.text =
+                              'http://qr-streamia.tv:8080/xmltv.php';
                           _tabController.animateTo(0);
                         });
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('QR-Code erkannt! Xtream-Daten & EPG-Link wurden eingetragen.'),
+                            content: Text(
+                                'QR-Code erkannt! Xtream-Daten & EPG-Link wurden eingetragen.'),
                           ),
                         );
                       },
@@ -201,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen>
           backgroundColor: const Color(0xFF1A1D29),
           title: const Row(
             children: [
-              Icon(Icons.Upload_file, color: Color(0xFF00E5FF)),
+              Icon(Icons.upload_file, color: Color(0xFF00E5FF)),
               SizedBox(width: 10),
               Expanded(child: Text('M3U / M3U8 Datei hochladen')),
             ],
@@ -217,14 +222,18 @@ class _LoginScreenState extends State<LoginScreen>
               const SizedBox(height: 16),
               ListTile(
                 tileColor: const Color(0xFF0F111A),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                leading: const Icon(Icons.description, color: Color(0xFFE50914)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                leading:
+                    const Icon(Icons.description, color: Color(0xFFE50914)),
                 title: const Text('streamia_komplett_2026.m3u'),
-                subtitle: const Text('Lokaler Speicher • Live TV, VODs & Serien'),
+                subtitle:
+                    const Text('Lokaler Speicher • Live TV, VODs & Serien'),
                 onTap: () {
                   setState(() {
                     _selectedFileName = 'streamia_komplett_2026.m3u';
-                    _m3uUrlCtrl.text = 'file:///storage/emulated/0/Download/streamia_komplett_2026.m3u';
+                    _m3uUrlCtrl.text =
+                        'file:///storage/emulated/0/Download/streamia_komplett_2026.m3u';
                     if (_m3uEpgCtrl.text.isEmpty) {
                       _m3uEpgCtrl.text = 'http://epg.streamia.tv/guide.xml';
                     }
@@ -240,7 +249,8 @@ class _LoginScreenState extends State<LoginScreen>
                   labelText: 'Oder eigenen #EXTM3U Datei-Inhalt hier einfügen',
                   filled: true,
                   fillColor: const Color(0xFF0F111A),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -251,7 +261,8 @@ class _LoginScreenState extends State<LoginScreen>
               child: const Text('Abbrechen'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE50914)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE50914)),
               onPressed: () {
                 setState(() {
                   _selectedFileName = 'Eigene_M3U_Datei.m3u';
@@ -278,16 +289,21 @@ class _LoginScreenState extends State<LoginScreen>
     if (server.isEmpty || user.isEmpty || pass.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte Server-URL, Benutzername und Passwort eingeben (oder QR-Scanner nutzen).'),
+          content: Text(
+              'Bitte Server-URL, Benutzername und Passwort eingeben (oder QR-Scanner nutzen).'),
         ),
       );
       return;
     }
 
-    final autoEpg = epg.isNotEmpty ? epg : '$server/xmltv.php?username=$user&password=$pass';
+    final autoEpg = epg.isNotEmpty
+        ? epg
+        : '$server/xmltv.php?username=$user&password=$pass';
 
     PlaylistService().loadFullRichCatalog(
-      name: _xtreamNameCtrl.text.trim().isEmpty ? 'Xtream IPTV' : _xtreamNameCtrl.text.trim(),
+      name: _xtreamNameCtrl.text.trim().isEmpty
+          ? 'Xtream IPTV'
+          : _xtreamNameCtrl.text.trim(),
       sourceType: 'Xtream Codes API',
       serverOrPath: server,
       epgUrl: autoEpg,
@@ -300,12 +316,15 @@ class _LoginScreenState extends State<LoginScreen>
     final urlOrFile = _m3uUrlCtrl.text.trim();
     final rawText = _m3uRawTextCtrl.text.trim();
     final epg = _m3uEpgCtrl.text.trim();
-    final name = _m3uNameCtrl.text.trim().isEmpty ? 'M3U Playlist' : _m3uNameCtrl.text.trim();
+    final name = _m3uNameCtrl.text.trim().isEmpty
+        ? 'M3U Playlist'
+        : _m3uNameCtrl.text.trim();
 
     if (urlOrFile.isEmpty && rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte eine M3U-Datei hochladen oder eine M3U-URL einfügen.'),
+          content: Text(
+              'Bitte eine M3U-Datei hochladen oder eine M3U-URL einfügen.'),
         ),
       );
       return;
@@ -323,7 +342,9 @@ class _LoginScreenState extends State<LoginScreen>
     } else {
       PlaylistService().loadFullRichCatalog(
         name: name,
-        sourceType: _selectedFileName != null ? 'M3U Datei-Upload ($_selectedFileName)' : 'M3U Link',
+        sourceType: _selectedFileName != null
+            ? 'M3U Datei-Upload ($_selectedFileName)'
+            : 'M3U Link',
         serverOrPath: urlOrFile,
         epgUrl: epg.isEmpty ? 'http://epg.streamia.tv/xmltv.xml' : epg,
       );
@@ -341,7 +362,6 @@ class _LoginScreenState extends State<LoginScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Kopfbereich mit Logo & Titel
               Row(
                 children: [
                   ClipRRect(
@@ -355,7 +375,8 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 64,
                         height: 64,
                         color: const Color(0xFFE50914),
-                        child: const Icon(Icons.live_tv, size: 36, color: Colors.white),
+                        child: const Icon(Icons.live_tv,
+                            size: 36, color: Colors.white),
                       ),
                     ),
                   ),
@@ -366,7 +387,10 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         Text(
                           'STREAMIA LOGIN',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                          style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2),
                         ),
                         SizedBox(height: 4),
                         Text(
@@ -379,8 +403,6 @@ class _LoginScreenState extends State<LoginScreen>
                 ],
               ),
               const SizedBox(height: 20),
-
-              // INTEGRIERTER QR-CODE SCANNER BUTTON
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _openQrScannerDialog,
@@ -391,11 +413,13 @@ class _LoginScreenState extends State<LoginScreen>
                       colors: [Color(0xFF005C66), Color(0xFF1A1D29)],
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF00E5FF), width: 1.5),
+                    border: Border.all(
+                        color: const Color(0xFF00E5FF), width: 1.5),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.qr_code_scanner, size: 42, color: Color(0xFF00E5FF)),
+                      Icon(Icons.qr_code_scanner,
+                          size: 42, color: Color(0xFF00E5FF)),
                       SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -403,24 +427,25 @@ class _LoginScreenState extends State<LoginScreen>
                           children: [
                             Text(
                               'QR-Code Scanner starten',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 4),
                             Text(
                               'Xtream-Zugangsdaten oder M3U + EPG direkt per Kamera scannen',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 12),
                             ),
                           ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, size: 18, color: Color(0xFF00E5FF)),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 18, color: Color(0xFF00E5FF)),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-
-              // TAB-AUSWAHL: XTREAM CODES ODER M3U DATEI / LINK
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1D29),
@@ -448,14 +473,11 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
               const SizedBox(height: 20),
-
-              // TAB-INHALT
               SizedBox(
                 height: 430,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // TAB 1: XTREAM CODES + EPG
                     SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -516,14 +538,13 @@ class _LoginScreenState extends State<LoginScreen>
                             icon: const Icon(Icons.login),
                             label: const Text(
                               'Mit Xtream Codes & EPG verbinden',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
                     ),
-
-                    // TAB 2: M3U DATEI HOCHLADEN / LINK + EPG
                     SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -534,106 +555,4 @@ class _LoginScreenState extends State<LoginScreen>
                             icon: Icons.label_outline,
                           ),
                           const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: Color(0xFF00E5FF)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _openLocalFilePickerDialog,
-                            icon: const Icon(Icons.upload_file, color: Color(0xFF00E5FF)),
-                            label: Text(
-                              _selectedFileName == null
-                                  ? 'M3U / M3U8 Datei vom Gerät auswählen'
-                                  : 'Geladen: $_selectedFileName',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildPasteField(
-                            controller: _m3uUrlCtrl,
-                            label: 'Oder M3U-Link direkt einfügen (.m3u / .m3u8)',
-                            icon: Icons.link,
-                            showPasteButton: true,
-                          ),
-                          const SizedBox(height: 12),
-                          _buildPasteField(
-                            controller: _m3uEpgCtrl,
-                            label: 'EPG-Link (XMLTV URL - einfach einfügen)',
-                            icon: Icons.event_note,
-                            showPasteButton: true,
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE50914),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _loginWithM3u,
-                            icon: const Icon(Icons.cloud_done),
-                            label: const Text(
-                              'M3U Datei / Link & EPG laden',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const Divider(color: Colors.white24),
-              TextButton.icon(
-                onPressed: () {
-                  PlaylistService().loadFullRichCatalog();
-                  Navigator.pushReplacementNamed(context, '/dashboard');
-                },
-                icon: const Icon(Icons.bolt, color: Colors.amber),
-                label: const Text(
-                  'Sofort-Test: Komplettes Demo-System (Live TV, VODs, Serien & EPG) öffnen',
-                  style: TextStyle(color: Colors.amber),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPasteField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isPassword = false,
-    bool showPasteButton = false,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        suffixIcon: showPasteButton
-            ? IconButton(
-                tooltip: 'Aus Zwischenablage einfügen',
-                icon: const Icon(Icons.content_paste, color: Color(0xFF00E5FF)),
-                onPressed: () => _pasteFromClipboard(controller, label),
-              )
-            : null,
-        filled: true,
-        fillColor: const Color(0xFF1A1D29),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-}
+                          OutlinedButton.

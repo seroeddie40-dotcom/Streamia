@@ -1,40 +1,59 @@
-name: Build Android APK
+name: Build Streamia APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repository auschecken
+      - name: 1. Projektdateien laden
         uses: actions/checkout@v4
 
-      - name: Java Environment einrichten
-        uses: actions/setup-java@v4
+      - name: 2. Java 17 einrichten
+        uses: actions/setup-java@v5
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Flutter SDK einrichten
+      - name: 3. Flutter einrichten
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
           channel: 'stable'
-          cache: true
 
-      - name: Android-Ordner generieren und APK bauen
+      - name: 4. Android-Ordner & Internet-Rechte prüfen
         run: |
-          # Generiert den sauberen Android-Ordner passend zum Projekt
-          flutter create . --platforms=android --project-name streamia --org com.streamia.player
-          
-          flutter pub get
-          flutter build apk --release
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android --org com.streamia.app --project-name streamia .
+          fi
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ] && ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/g' "$MANIFEST"
+          fi
 
-      - name: APK als Artefakt hochladen
+      - name: 5. Eigenes App-Icon aus app_logo.jpg generieren
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat << 'EOF' >> pubspec.yaml
+
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/images/app_logo.jpg"
+            min_sdk_android: 21
+          EOF
+          flutter pub get
+          dart run flutter_launcher_icons
+
+      - name: 6. APK-Datei bauen
+        run: flutter build apk --release
+
+      - name: 7. Fertige APK zum Download bereitstellen
         uses: actions/upload-artifact@v4
         with:
           name: streamia-player-apk

@@ -1,7 +1,6 @@
 name: streamia
-description: "Ein moderner IPTV Player für Android und Flutter."
-publish_to: "none"
-
+description: Streamia IPTV & Media Player
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -19,3 +18,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/app_logo.jpg

@@ -1,230 +1,118 @@
 import 'package:flutter/material.dart';
 import '../services/playlist_service.dart';
-import '../services/playlist_parser_service.dart';
-import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _nameController = TextEditingController();
-  final _urlController = TextEditingController();
   final _userController = TextEditingController();
   final _passController = TextEditingController();
-  
-  String _loginType = 'qr'; // 'qr', 'xtream', 'm3u'
-  bool _isLoading = false;
-  String _errorMessage = '';
 
-  Future<void> _saveAndEnter() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty && _loginType != 'qr') {
-      setState(() => _errorMessage = 'Bitte einen Namen für die Playlist eingeben');
+  void _login({bool asGuest = false}) {
+    if (!asGuest && _userController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte Benutzernamen eingeben oder Gastzugang wählen.')),
+      );
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      if (_loginType == 'xtream') {
-        final url = _urlController.text.trim();
-        final user = _userController.text.trim();
-        final pass = _passController.text.trim();
-
-        // Echten Test-Abruf über den PlaylistParserService starten
-        final result = await PlaylistParserService.fetchXtreamData(
-          serverUrl: url,
-          username: user,
-          password: pass,
-        );
-
-        if (!result['success']) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'Verbindung fehlgeschlagen: ${result['error']}';
-          });
-          return;
-        }
-
-        // Daten erfolgreich validiert, als Xtream-String speichern
-        final data = '$url|$user|$pass';
-        await PlaylistService.savePlaylist(type: 'xtream', data: data, name: name.isEmpty ? 'Xtream Playlist' : name);
-
-      } else if (_loginType == 'm3u') {
-        final m3uUrlOrPath = _urlController.text.trim();
-        if (m3uUrlOrPath.isEmpty) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'Bitte M3U Link oder Pfad eingeben';
-          });
-          return;
-        }
-        await PlaylistService.savePlaylist(type: 'm3u', data: m3uUrlOrPath, name: name.isEmpty ? 'M3U Playlist' : name);
-
-      } else {
-        // QR-Code Pairing Session
-        final qrData = 'qr_paired_session_${DateTime.now().millisecondsSinceEpoch}';
-        await PlaylistService.savePlaylist(type: 'qr', data: qrData, name: 'QR Pairing Gerät');
-      }
-
-      // Erfolgreich zum Dashboard wechseln
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
-
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
-      });
+    if (PlaylistService().playlists.isEmpty) {
+      PlaylistService().loadDemoPlaylist();
     }
+    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: Center(
-        child: Container(
-          width: 600,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Streamia Player – Anmeldung',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Freemium-Modus: 1 Playlist aktiv speicherbar',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              
-              // Auswahl der Login-Methode (Tabs)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildTabButton('QR-Code Pairing', 'qr'),
-                  const SizedBox(width: 10),
-                  _buildTabButton('Xtream Codes', 'xtream'),
-                  const SizedBox(width: 10),
-                  _buildTabButton('M3U / USB', 'm3u'),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              if (_errorMessage.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                  child: Text(_errorMessage, style: const TextStyle(color: Colors.redAccent, fontSize: 13), textAlign: TextAlign.center),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/app_logo.jpg',
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.live_tv,
+                      size: 80,
+                      color: Color(0xFFE50914),
+                    ),
+                  ),
                 ),
-
-              // Inhalt je nach gewählter Methode
-              if (_loginType == 'qr') ...[
-                const Icon(Icons.qr_code_2, size: 100, color: Colors.white),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 const Text(
-                  'Scannen Sie den QR-Code mit Ihrem Smartphone,\num die Playlist unkompliziert zu koppeln.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
+                  'Willkommen bei Streamia',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-              ] else ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Melde dich an oder starte direkt im Gastmodus',
+                  style: TextStyle(color: Colors.white60),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
                 TextField(
-                  controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Playlist Name',
-                    labelStyle: TextStyle(color: Colors.grey),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+                  controller: _userController,
+                  decoration: InputDecoration(
+                    labelText: 'Benutzername / E-Mail',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    filled: true,
+                    fillColor: const Color(0xFF1A1D29),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Passwort',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    filled: true,
+                    fillColor: const Color(0xFF1A1D29),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE50914),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => _login(asGuest: false),
+                    child: const Text('Anmelden', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _urlController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: _loginType == 'xtream' ? 'Server URL (z.B. http://line.tv:8080)' : 'M3U Link oder Dateipfad',
-                    labelStyle: const TextStyle(color: Colors.grey),
-                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                    focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
-                  ),
+                TextButton.icon(
+                  onPressed: () => _login(asGuest: true),
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('Ohne Konto als Gast starten'),
                 ),
-                if (_loginType == 'xtream') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _userController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Benutzername',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passController,
-                    obscureText: true,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Passwort',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
-                    ),
-                  ),
-                ],
               ],
-              const SizedBox(height: 32),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-                  : ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: _saveAndEnter,
-                      child: const Text('Verbinden & Starten', style: TextStyle(fontSize: 16, color: Colors.white)),
-                    ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String title, String type) {
-    bool isSelected = _loginType == type;
-    return Expanded(
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isSelected ? Colors.blueAccent : Colors.transparent,
-          side: const BorderSide(color: Colors.blueAccent),
-        ),
-        onPressed: () => setState(() => _loginType = type),
-        child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 11)),
       ),
     );
   }

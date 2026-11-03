@@ -1,0 +1,49 @@
+name: Build Streamia APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository herunterladen
+        uses: actions/checkout@v4
+
+      - name: Java 17 installieren
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Flutter installieren
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Fehlende pubspec-Endung sicherheitshalber prüfen
+        run: |
+          if [ -f "pubspec.yml" ] && [ ! -f "pubspec.yaml" ]; then
+            mv pubspec.yml pubspec.yaml
+          fi
+
+      - name: Fehlenden Android-Ordner automatisch generieren
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android --org com.streamia.app .
+          fi
+
+      - name: Pakete laden
+        run: flutter pub get
+
+      - name: APK erstellen
+        run: flutter build apk --release
+
+      - name: Fertige APK zum Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Streamia-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk

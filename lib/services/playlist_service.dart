@@ -1,9 +1,10 @@
+import 'dart:math';
 import 'playlist_parser_service.dart';
 
 class Playlist {
   final String id;
   final String name;
-  final String sourceType; // 'Xtream Codes', 'M3U Datei / Link', 'QR-Scan'
+  final String sourceType;
   final String serverOrPath;
   final String epgUrl;
   final DateTime lastUpdated;
@@ -23,12 +24,17 @@ class Playlist {
 class PlaylistService {
   static final PlaylistService _instance = PlaylistService._internal();
   factory PlaylistService() => _instance;
-  PlaylistService._internal();
+  PlaylistService._internal() {
+    _initDeviceCredentials();
+  }
 
   final List<Playlist> _playlists = [];
   Playlist? _activePlaylist;
 
-  // Einstellungs-Werte für die Schnellsteuerung im Dashboard
+  late String macAddress;
+  late String deviceKey;
+  String webUploadUrl = 'https://streamia.tv/activation';
+
   String streamFormat = 'MPEG-TS (.ts) / HLS (.m3u8)';
   String hardwareDecoder = 'Hardware-Beschleunigung (HW+)';
   String bufferSize = 'Mittel (3 Sekunden - Optimal)';
@@ -36,6 +42,12 @@ class PlaylistService {
   bool parentalControlEnabled = false;
   String parentalPin = '0000';
   bool autoUpdateEpg = true;
+
+  void _initDeviceCredentials() {
+    final rand = Random(42);
+    macAddress = List.generate(6, (_) => rand.nextInt(256).toRadixString(16).padLeft(2, '0').toUpperCase()).join(':');
+    deviceKey = '${rand.nextInt(900000) + 100000}';
+  }
 
   List<Playlist> get playlists => _playlists;
   Playlist? get activePlaylist =>
@@ -86,7 +98,6 @@ class PlaylistService {
   }) {
     final now = DateTime.now();
     final List<MediaItem> demoItems = [
-      // LIVE TV SENDER
       MediaItem(
         id: 'live_1',
         title: 'Das Erste HD',
@@ -132,19 +143,6 @@ class PlaylistService {
         addedAt: now.subtract(const Duration(hours: 2)),
       ),
       MediaItem(
-        id: 'live_5',
-        title: 'Sport Arena 1 FHD',
-        group: 'DE • Sport & Action',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.live,
-        epgCurrentProgram: 'Topspiel der Woche - Vorberichterstattung',
-        rating: 9.4,
-        year: 'LIVE',
-        addedAt: now.subtract(const Duration(hours: 3)),
-      ),
-
-      // FILME (VODS)
-      MediaItem(
         id: 'vod_1',
         title: 'Cyber Horizon 2049 (4K)',
         group: 'VOD • Sci-Fi & Action',
@@ -156,41 +154,6 @@ class PlaylistService {
         addedAt: now.subtract(const Duration(hours: 4)),
       ),
       MediaItem(
-        id: 'vod_2',
-        title: 'Nacht über Berlin - Der Thriller',
-        group: 'VOD • Krimi & Thriller',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.movie,
-        epgCurrentProgram: 'Laufzeit: 118 Min • Deutsch DD 5.1 • Full HD',
-        rating: 8.6,
-        year: '2025',
-        addedAt: now.subtract(const Duration(days: 1)),
-      ),
-      MediaItem(
-        id: 'vod_3',
-        title: 'Big Buck Bunny - Animationsfilm',
-        group: 'VOD • Familie & Animation',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.movie,
-        epgCurrentProgram: 'Laufzeit: 95 Min • Familienkomödie • Full HD',
-        rating: 8.1,
-        year: '2024',
-        addedAt: now.subtract(const Duration(days: 3)),
-      ),
-      MediaItem(
-        id: 'vod_4',
-        title: 'Apex Racers - Im Rausch der Tiefe',
-        group: 'VOD • Sci-Fi & Action',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.movie,
-        epgCurrentProgram: 'Laufzeit: 130 Min • Dolby Atmos • 4K',
-        rating: 8.9,
-        year: '2026',
-        addedAt: now.subtract(const Duration(hours: 2)),
-      ),
-
-      // SERIEN
-      MediaItem(
         id: 'ser_1',
         title: 'Dark Net Chronicles - S01E01',
         group: 'Serien • Thriller & Mystery',
@@ -200,39 +163,6 @@ class PlaylistService {
         rating: 9.6,
         year: '2026',
         addedAt: now.subtract(const Duration(hours: 1)),
-      ),
-      MediaItem(
-        id: 'ser_2',
-        title: 'Dark Net Chronicles - S01E02',
-        group: 'Serien • Thriller & Mystery',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.series,
-        epgCurrentProgram: 'Staffel 1 • Folge 2: Verschlüsselt (49 Min)',
-        rating: 9.4,
-        year: '2026',
-        addedAt: now.subtract(const Duration(hours: 2)),
-      ),
-      MediaItem(
-        id: 'ser_3',
-        title: 'Galactic Pioneers - S02E01',
-        group: 'Serien • Sci-Fi',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.series,
-        epgCurrentProgram: 'Staffel 2 • Folge 1: Neue Welten (58 Min)',
-        rating: 8.8,
-        year: '2025',
-        addedAt: now.subtract(const Duration(days: 2)),
-      ),
-      MediaItem(
-        id: 'ser_4',
-        title: 'Medizin am Limit - S04E08',
-        group: 'Serien • Drama',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        category: MediaCategory.series,
-        epgCurrentProgram: 'Staffel 4 • Folge 8: Nachtschicht (45 Min)',
-        rating: 8.3,
-        year: '2024',
-        addedAt: now.subtract(const Duration(days: 5)),
       ),
     ];
 
